@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && cd frontend && npm install && npm run build && cd ../server && npm install && npx tsc"
+
+[deploy]
+startCommand = "cd server && node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+runOnlyNixpacksTests = true
+
+[deploy.watchPatterns]
+paths = ["server/**", "frontend/**", "data/**", "db/**", "package.json", "package-lock.json"]

@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String            @id @default(uuid())
+  telegramUserId    BigInt            @unique @map("telegram_user_id")
+  chatId            BigInt            @map("chat_id")
+  username          String?           @map("username")
+  firstName         String?           @map("first_name")
+  timezone          String            @default("America/Argentina/Buenos_Aires") @map("timezone")
+  languageMode      LanguageMode      @default(es_ru) @map("language_mode")
+  examQuestionCount Int               @default(40) @map("exam_question_count")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  lastSeenAt        DateTime          @default(now()) @map("last_seen_at")
+
+  reminderSetting   ReminderSetting?
+  quizSessions      QuizSession[]
+  attempts          Attempt[]
+  userQuestionStats UserQuestionStat[]
+
+  @@map("users")
+}
+
+model ReminderSetting {
+  id          String    @id @default(uuid())
+  userId      String    @unique @map("user_id")
+  enabled     Boolean   @default(true) @map("enabled")
+  timeLocal   String    @default("09:00") @map("time_local")
+  timezone    String    @default("America/Argentina/Buenos_Aires") @map("timezone")
+  lastSentAt  DateTime? @map("last_sent_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reminder_settings")
+}
+
+model Question {
+  id               String          @id
+  jurisdiction     String          @map("jurisdiction")
+  licenseClass     String          @map("license_class")
+  category         String          @map("category")
+  questionEs       String          @map("question_es")
+  questionRu       String          @map("question_ru")
+  type             QuestionType    @map("type")
+  correctOptionIds Json            @map("correct_option_ids")
+  media            Json?           @map("media")
+  explanationRu    String?         @map("explanation_ru")
+  source           Json            @map("source")
+  status           String          @default("manual_review_required") @map("status")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  options          QuestionOption[]
+  attempts         Attempt[]
+  userQuestionStats UserQuestionStat[]
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id          String   @id @default(uuid())
+  questionId  String   @map("question_id")
+  optionId    String   @map("option_id")
+  textEs      String   @map("text_es")
+  textRu      String   @map("text_ru")
+  sortOrder   Int      @map("sort_order")
+
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_options")
+}
+
+model QuizSession {
+  id           String         @id @default(uuid())
+  userId       String         @map("user_id")
+  mode         SessionMode    @map("mode")
+  status       SessionStatus  @default(active) @map("status")
+  questionIds  Json           @map("question_ids")
+  currentIndex Int            @default(0) @map("current_index")
+  score        Int            @default(0) @map("score")
+  total        Int            @map("total")
+  startedAt    DateTime       @default(now()) @map("started_at")
+  completedAt  DateTime?      @map("completed_at")
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts     Attempt[]
+
+  @@map("quiz_sessions")
+}
+
+model Attempt {
+  id                  String   @id @default(uuid())
+  userId              String   @map("user_id")
+  sessionId           String   @map("session_id")
+  questionId          String   @map("question_id")
+  selectedOptionIds   Json     @map("selected_option_ids")
+  isCorrect           Boolean  @map("is_correct")
+  answeredAt          DateTime @default(now()) @map("answered_at")
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session             QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("attempts")
+}
+
+model UserQuestionStat {
+  userId          String    @map("user_id")
+  questionId      String    @map("question_id")
+  attemptsCount   Int       @default(0) @map("attempts_count")
+  correctCount    Int       @default(0) @map("correct_count")
+  wrongCount      Int       @default(0) @map("wrong_count")
+  correctStreak   Int       @default(0) @map("correct_streak")
+  lastAnsweredAt  DateTime? @map("last_answered_at")
+  status          StatStatus @default(new) @map("status")
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question        Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@map("user_question_stats")
+}
+
+enum LanguageMode {
+  es_ru
+  es_only
+  ru_only
+}
+
+enum QuestionType {
+  single_choice
+  multiple_choice
+  true_false
+}
+
+enum SessionMode {
+  practice
+  exam
+  mistakes
+}
+
+enum SessionStatus {
+  active
+  completed
+  abandoned
+}
+
+enum StatStatus {
+  new
+  learning
+  mastered
+  weak
+}
